@@ -1,4 +1,4 @@
-selenium
+Selenium
 ========
 
 Golang Selenium Bindings
