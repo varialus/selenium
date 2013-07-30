@@ -12,6 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"errors"
 	"flag"
@@ -27,12 +28,11 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"archive/zip"
+	"time"
 )
 
-var browser_name string
-
 func main() {
+	var browser_name string
 	if runtime.GOOS != "linux" {
 		fmt.Println(fmt.Errorf("Error: selenium not yet implemented on %s", runtime.GOOS))
 		return
@@ -48,65 +48,32 @@ func main() {
 		return
 	}
 	fmt.Println("browser ==", browser_name)
-	// TODO: While making this work with multiple browsers, restructure to use existing driver while downloading new driver in goroutine for next use
-	if driver_path, err := getChromeDriver(true); err != nil {
-		fmt.Println("driver_path1 ==", driver_path)
+	if port, err := free_port(); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println("driver_path2 ==", driver_path)
-		if port, err := free_port(); err != nil {
-			fmt.Println(err)
-			return
-		} else {
-			fmt.Println("port ==", port)
-			driver_command := exec.Command(driver_path, "--port=" + strconv.Itoa(port))
-			var stdout_buffer bytes.Buffer
-			driver_command.Stdout = &stdout_buffer
-			var stderr_buffer bytes.Buffer
-			driver_command.Stderr = &stderr_buffer
-			if err := driver_command.Run(); err != nil {
-				if strings.Index(stderr_buffer.String(), "GLIBC") >= 0 && strings.Index(err.Error(), "exit status 1") >= 0 {
-					if driver_path, err := getChromeDriver(false); err != nil {
-						fmt.Println("driver_path3 ==", driver_path)
-						fmt.Println(err)
-					} else {
-						fmt.Println("driver_path4 ==", driver_path)
-						if port, err := free_port(); err != nil {
-							fmt.Println(err)
-							return
-						} else {
-							fmt.Println("port ==", port)
-							driver_command := exec.Command(driver_path, "--port=" + strconv.Itoa(port))
-							var stdout_buffer bytes.Buffer
-							driver_command.Stdout = &stdout_buffer
-							var stderr_buffer bytes.Buffer
-							driver_command.Stderr = &stderr_buffer
-							if err := driver_command.Run(); err != nil {
-								fmt.Println("Error: unable to run command, err ==", err)
-							}
-							fmt.Printf("driver_command.Stdout == %q\n", stdout_buffer.String())
-							fmt.Printf("driver_command.Stderr == %q\n", stderr_buffer.String())
-						}
-					}
-				} else {
-					fmt.Println("Error: unable to run command, err ==", err)
-				}
+		fmt.Println("port ==", port)
+		go func() {
+			if err := startChromeDriver(true, port); err != nil {
+				go func() {
+					startChromeDriver(false, port)
+				}()
 			}
-			fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
-			fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
-		}
+		}()
+		defer stopChromeDriver(port)
+		waitForChromeDriver(port)
+		time.Sleep(20 * time.Second)
 	}
 }
 
 func linuxChrome64DriverURL(latest bool) (chrome_driver_url string, driver_version string, err error) {
 	chrome_drivers_url := "https://code.google.com/p/chromedriver/downloads/list"
 	if resp, err := http.Get(chrome_drivers_url); err != nil {
-		err = fmt.Errorf("Error: unable to get latest %s drivers from %s", browser_name, chrome_drivers_url)
+		err = fmt.Errorf("Error: unable to get latest driver from %s", chrome_drivers_url)
 		return chrome_driver_url, driver_version, err
 	} else {
 		defer resp.Body.Close()
 		if bytes, err := ioutil.ReadAll(resp.Body); err != nil {
-			err = fmt.Errorf("Error: unable to read bytes from body while getting %s drivers from %s", browser_name, chrome_drivers_url)
+			err = fmt.Errorf("Error: unable to read bytes from body while getting driver from %s", chrome_drivers_url)
 			return chrome_driver_url, driver_version, err
 		} else {
 			chrome_driver_url = string(bytes)
@@ -234,5 +201,43 @@ func getChromeDriver(latest bool) (driver_path string, err error) {
 			}
 		}
 		return driver_path, err
+	}
+}
+
+func startChromeDriver(latest bool, port int) error {
+	// TODO: While making this work with multiple browsers, restructure to use existing driver while downloading new driver in goroutine for next use
+	if driver_path, err := getChromeDriver(latest); err != nil {
+		fmt.Println("driver_path1 ==", driver_path)
+		return err
+	} else {
+		fmt.Println("driver_path2 ==", driver_path)
+		fmt.Println("port ==", port)
+		driver_command := exec.Command(driver_path, "--port=" + strconv.Itoa(port))
+		var stdout_buffer bytes.Buffer
+		driver_command.Stdout = &stdout_buffer
+		var stderr_buffer bytes.Buffer
+		driver_command.Stderr = &stderr_buffer
+		if err := driver_command.Run(); err != nil {
+			fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
+			fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
+			return fmt.Errorf("Error: unable to run command, err == %s", err.Error())
+		} else {
+			fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
+			fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
+			return nil
+		}
+	}
+}
+
+func stopChromeDriver(port int) {
+	shutdown_url := "http://127.0.0.1:" + strconv.Itoa(port) + "/shutdown"
+	http.Get(shutdown_url)
+}
+
+func waitForChromeDriver(port int) {
+	counter := 0
+	for _, err := http.Get("http://127.0.0.1:" + strconv.Itoa(port)); err != nil && counter < 5000; _, err = http.Get("http://127.0.0.1:" + strconv.Itoa(port)) {
+		counter++
+		time.Sleep(time.Millisecond)
 	}
 }
