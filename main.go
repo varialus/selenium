@@ -6,14 +6,41 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
+// http://code.google.com/p/chromedriver/wiki/CapabilitiesAndSwitches
+// http://code.google.com/p/chromedriver/wiki/GettingStarted
+// http://code.google.com/p/chromedriver/wiki/TroubleshootingAndSupport
+// http://code.google.com/p/selenium/wiki/JsonWireProtocol
+// http://code.google.com/p/selenium/source/browse/java/server/src/org/openqa/grid/common/defaults/DefaultNode.json
+// http://code.google.com/p/selenium/source/browse/py/
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/__init__.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/chrome/__init__.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/chrome/options.py
 // http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/chrome/service.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/chrome/webdriver.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/common/desired_capabilities.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/common/utils.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/remote/command.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/remote/remote_connection.py
+// http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/remote/webdriver.py
+// http://code.google.com/p/selenium/source/browse/py/README
+// http://code.google.com/p/selenium/w/list
+// http://code.google.com/p/selenium/wiki/ArchitecturalOverview
 // http://code.google.com/p/selenium/wiki/ChromeDriver
+// http://code.google.com/p/selenium/wiki/ChromeDriver#Overriding_the_Chrome_binary_location
+// http://code.google.com/p/selenium/wiki/DefiningNewWireProtocolCommands
+// http://code.google.com/p/selenium/wiki/DesiredCapabilities
+// http://code.google.com/p/selenium/wiki/JsonWireProtocol
+// http://code.google.com/p/selenium/wiki/RemoteWebDriver
+// http://selenium.googlecode.com/git/docs/api/py/webdriver_remote/selenium.webdriver.remote.webdriver.html
+
+// ChromeDriver Default Address 127.0.0.1:9515
 
 package main
 
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -61,7 +88,55 @@ func main() {
 		}()
 		defer stopChromeDriver(port)
 		waitForChromeDriver(port)
-		time.Sleep(20 * time.Second)
+		chrome_options := map[string]interface{}{
+			// function returns slice of extension *.crx files read as Python base64 data
+			// it gets called and formatted before it is sent to chromedriver
+			//"extensions":		func()
+			"binary":		"/usr/bin/chromium",
+		}
+		desired_chrome_capabilities := map[string]interface{}{
+			"browserName":		"chrome",
+			"version":		"",
+			"platform":		"ANY",
+			"javascriptEnabled":	true,
+			"chromeOptions":	chrome_options,
+		}
+		fmt.Println("desired_chrome_capabilities ==", desired_chrome_capabilities)
+		//command_executor_url := "http://127.0.0.1:4444/wd/hub"
+		//command_executor_url := fmt.Sprintf("http://127.0.0.1:%d/wd/hub", port)
+		command_executor_url := fmt.Sprintf("http://127.0.0.1:%d", port)
+		fmt.Println("command_executor_url", command_executor_url)
+		commands := map[string][2]string{
+			"newSession": [2]string{"POST", "/session"},
+		}
+		fmt.Println("commands ==", commands)
+		driver_command_to_execute := "newSession"
+		fmt.Println("driver_command_to_execute ==", driver_command_to_execute)
+		params_to_execute := map[string]map[string]interface{}{
+			"desiredCapabilities": desired_chrome_capabilities,
+		}
+		fmt.Println("params_to_execute ==", params_to_execute)
+		if json_bytes, err := json.Marshal(params_to_execute); err != nil {
+			fmt.Println(fmt.Errorf("Error: problem while calling json.Marshal(%v); err == %s", params_to_execute, err.Error()))
+		} else {
+			fmt.Println("json_bytes ==", json_bytes)
+			command_info := [2]string{"POST", "/session"}
+			buffered_data := bytes.NewBuffer(json_bytes)
+			url := command_executor_url + command_info[1]
+			if command_info[0] == "POST" {
+				if response, err := http.Post(url, "application/json", buffered_data); err != nil {
+					fmt.Println(fmt.Errorf("Error: problem while calling http.Post(%s, \"application/json\", json.Marshal(%v)); err == %s", url, params_to_execute, err.Error()))
+				} else {
+					fmt.Println("response ==", response)
+					if bytes, err := ioutil.ReadAll(response.Body); err != nil {
+						fmt.Println(fmt.Errorf("Error: problem getting response while starting new session; %s", err.Error()))
+					} else {
+						fmt.Println("string(bytes) ==", string(bytes))
+					}
+				}
+			}
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
