@@ -9,7 +9,6 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 // http://code.google.com/p/chromedriver/wiki/CapabilitiesAndSwitches
 // http://code.google.com/p/chromedriver/wiki/GettingStarted
 // http://code.google.com/p/chromedriver/wiki/TroubleshootingAndSupport
-// http://code.google.com/p/selenium/wiki/JsonWireProtocol
 // http://code.google.com/p/selenium/source/browse/java/server/src/org/openqa/grid/common/defaults/DefaultNode.json
 // http://code.google.com/p/selenium/source/browse/py/
 // http://code.google.com/p/selenium/source/browse/py/selenium/webdriver/__init__.py
@@ -35,6 +34,8 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 // ChromeDriver Default Address 127.0.0.1:9515
 
+// TODO: Recommendation: <mortdeus> varialus, fyi if you call your file main_linux_amd64.go, you can take out the runtime checks.
+
 package main
 
 import (
@@ -57,6 +58,46 @@ import (
 	"strings"
 	"time"
 )
+
+// http://code.google.com/p/selenium/wiki/JsonWireProtocol
+//
+// /session
+//
+//	POST /session
+//
+//		Create a new session.
+//		The server should attempt to create a session that most closely matches the desired and required capabilities.
+//		Required capabilities have higher priority than desired capabilities and must be set for the session to be created.
+//
+//		JSON Parameters:
+//			desiredCapabilities - {object} An object describing the session's desired capabilities.
+//			requiredCapabilities - {object} An object describing the session's required capabilities (Optional).
+//
+//		Returns:
+//			{object} An object describing the session's capabilities.
+//
+//		Potential Errors:
+//			SessionNotCreatedException - If a required capability could not be set.
+func Session(url string, capabilities interface{}, v interface{}) error {
+	if json_bytes, err := json.Marshal(capabilities); err != nil {
+		return fmt.Errorf("Error: problem while calling json.Marshal(%v); err == %s", capabilities, err.Error())
+	} else {
+		fmt.Println("json_bytes ==", json_bytes)
+		buffered_data := bytes.NewBuffer(json_bytes)
+		if response, err := http.Post(url + "/session", "application/json", buffered_data); err != nil {
+			return fmt.Errorf("Error: problem while calling http.Post(%s, \"application/json\", json.Marshal(%v)); err == %s", url + "/session", capabilities, err.Error())
+		} else {
+			fmt.Println("response ==", response)
+			if bytes, err := ioutil.ReadAll(response.Body); err != nil {
+				return fmt.Errorf("Error: problem getting response while starting new session; %s", err.Error())
+			} else {
+				defer response.Body.Close()
+				fmt.Println("string(bytes) ==", string(bytes))
+				return json.Unmarshal(bytes, v)
+			}
+		}
+	}
+}
 
 func main() {
 	var browser_name string
@@ -116,25 +157,11 @@ func main() {
 			"desiredCapabilities": desired_chrome_capabilities,
 		}
 		fmt.Println("params_to_execute ==", params_to_execute)
-		if json_bytes, err := json.Marshal(params_to_execute); err != nil {
-			fmt.Println(fmt.Errorf("Error: problem while calling json.Marshal(%v); err == %s", params_to_execute, err.Error()))
+		var result interface{}
+		if err := Session(command_executor_url, params_to_execute, &result); err != nil {
+			fmt.Println(fmt.Errorf("Error: problem starting session; error == %s", err.Error()))
 		} else {
-			fmt.Println("json_bytes ==", json_bytes)
-			command_info := [2]string{"POST", "/session"}
-			buffered_data := bytes.NewBuffer(json_bytes)
-			url := command_executor_url + command_info[1]
-			if command_info[0] == "POST" {
-				if response, err := http.Post(url, "application/json", buffered_data); err != nil {
-					fmt.Println(fmt.Errorf("Error: problem while calling http.Post(%s, \"application/json\", json.Marshal(%v)); err == %s", url, params_to_execute, err.Error()))
-				} else {
-					fmt.Println("response ==", response)
-					if bytes, err := ioutil.ReadAll(response.Body); err != nil {
-						fmt.Println(fmt.Errorf("Error: problem getting response while starting new session; %s", err.Error()))
-					} else {
-						fmt.Println("string(bytes) ==", string(bytes))
-					}
-				}
-			}
+			fmt.Println("result ==", result)
 		}
 		time.Sleep(1 * time.Second)
 	}
