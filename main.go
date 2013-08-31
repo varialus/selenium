@@ -178,7 +178,7 @@ func linuxChrome64DriverURL(latest bool) (chrome_driver_url string, driver_versi
 	chrome_driver_url = string(bytes)
 	if latest {
 		chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "'//chromedriver.googlecode.com/files/chromedriver_linux64_"):strings.LastIndex(chrome_driver_url, "supports Chrome")]
-		driver_version = chrome_driver_url[strings.LastIndex(chrome_driver_url, "(")+1:strings.LastIndex(chrome_driver_url, ")")]
+		driver_version = chrome_driver_url[strings.LastIndex(chrome_driver_url, "(")+1 : strings.LastIndex(chrome_driver_url, ")")]
 		chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "//"):strings.Index(chrome_driver_url, "',")]
 		chrome_driver_url = "https:" + chrome_driver_url
 	} else {
@@ -234,10 +234,9 @@ func getChromeDriver(latest bool) (driver_path string, err error) {
 		if file_info, err := os.Stat(home_dir); err != nil && os.IsNotExist(err) {
 			fmt.Println(fmt.Errorf("Error: %s does not exist", home_dir))
 			return driver_path, fmt.Errorf("Error: %s does not exist; err == %s", home_dir, err.Error())
-		} else {
-			if err := os.MkdirAll(driver_dir, file_info.Mode()); err != nil {
-				return driver_path, fmt.Errorf("Error: unable to create %s; err == %s", driver_dir, err.Error())
-			}
+		}
+		if err := os.MkdirAll(driver_dir, file_info.Mode()); err != nil {
+			return driver_path, fmt.Errorf("Error: unable to create %s; err == %s", driver_dir, err.Error())
 		}
 	}
 	if _, err := os.Stat(driver_path); err != nil && os.IsNotExist(err) {
