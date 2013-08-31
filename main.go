@@ -49,10 +49,10 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"path"
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -133,14 +133,14 @@ func main() {
 			// function returns slice of extension *.crx files read as Python base64 data
 			// it gets called and formatted before it is sent to chromedriver
 			//"extensions":		func()
-			"binary":		"/usr/bin/chromium",
+			"binary": "/usr/bin/chromium",
 		}
 		desired_chrome_capabilities := map[string]interface{}{
-			"browserName":		"chrome",
-			"version":		"",
-			"platform":		"ANY",
-			"javascriptEnabled":	true,
-			"chromeOptions":	chrome_options,
+			"browserName":       "chrome",
+			"version":           "",
+			"platform":          "ANY",
+			"javascriptEnabled": true,
+			"chromeOptions":     chrome_options,
 		}
 		fmt.Println("desired_chrome_capabilities ==", desired_chrome_capabilities)
 		//command_executor_url := "http://127.0.0.1:4444/wd/hub"
@@ -202,8 +202,8 @@ func userHomeDir() string {
 			if home == "" {
 				home = os.Getenv("USERPROFILE")
 			}
-				return home
-			}
+			return home
+		}
 		return os.Getenv("HOME")
 	} else {
 		return usr.HomeDir
@@ -248,7 +248,7 @@ func getChromeDriver(latest bool) (driver_path string, err error) {
 				}
 			}
 		}
-		if _, err := os.Stat(driver_path); err != nil && os.IsNotExist(err){
+		if _, err := os.Stat(driver_path); err != nil && os.IsNotExist(err) {
 			zip_name := chrome_driver_url[strings.LastIndex(chrome_driver_url, "/")+1:]
 			if zip_file, err := ioutil.TempFile("", zip_name); err != nil {
 				return driver_path, fmt.Errorf("Error: unable to create temporary file %s; err == %s", zip_name, err.Error())
@@ -314,7 +314,7 @@ func startChromeDriver(latest bool, port int) error {
 	} else {
 		fmt.Println("driver_path2 ==", driver_path)
 		fmt.Println("port ==", port)
-		driver_command := exec.Command(driver_path, "--port=" + strconv.Itoa(port))
+		driver_command := exec.Command(driver_path, "--port="+strconv.Itoa(port))
 		var stdout_buffer bytes.Buffer
 		driver_command.Stdout = &stdout_buffer
 		var stderr_buffer bytes.Buffer
