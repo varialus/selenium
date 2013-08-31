@@ -49,10 +49,10 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"path"
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -81,22 +81,19 @@ import (
 func Session(url string, capabilities interface{}, v interface{}) error {
 	if json_bytes, err := json.Marshal(capabilities); err != nil {
 		return fmt.Errorf("Error: problem while calling json.Marshal(%v); err == %s", capabilities, err.Error())
-	} else {
-		fmt.Println("json_bytes ==", json_bytes)
-		buffered_data := bytes.NewBuffer(json_bytes)
-		if response, err := http.Post(url + "/session", "application/json", buffered_data); err != nil {
-			return fmt.Errorf("Error: problem while calling http.Post(%s, \"application/json\", json.Marshal(%v)); err == %s", url + "/session", capabilities, err.Error())
-		} else {
-			fmt.Println("response ==", response)
-			if bytes, err := ioutil.ReadAll(response.Body); err != nil {
-				return fmt.Errorf("Error: problem getting response while starting new session; %s", err.Error())
-			} else {
-				defer response.Body.Close()
-				fmt.Println("string(bytes) ==", string(bytes))
-				return json.Unmarshal(bytes, v)
-			}
-		}
 	}
+	fmt.Println("json_bytes ==", json_bytes)
+	buffered_data := bytes.NewBuffer(json_bytes)
+	if response, err := http.Post(url+"/session", "application/json", buffered_data); err != nil {
+		return fmt.Errorf("Error: problem while calling http.Post(%s, \"application/json\", json.Marshal(%v)); err == %s", url+"/session", capabilities, err.Error())
+	}
+	fmt.Println("response ==", response)
+	if bytes, err := ioutil.ReadAll(response.Body); err != nil {
+		return fmt.Errorf("Error: problem getting response while starting new session; %s", err.Error())
+	}
+	defer response.Body.Close()
+	fmt.Println("string(bytes) ==", string(bytes))
+	return json.Unmarshal(bytes, v)
 }
 
 func main() {
@@ -118,53 +115,53 @@ func main() {
 	fmt.Println("browser ==", browser_name)
 	if port, err := free_port(); err != nil {
 		fmt.Println(err)
-	} else {
-		fmt.Println("port ==", port)
-		go func() {
-			if err := startChromeDriver(true, port); err != nil {
-				go func() {
-					startChromeDriver(false, port)
-				}()
-			}
-		}()
-		defer stopChromeDriver(port)
-		waitForChromeDriver(port)
-		chrome_options := map[string]interface{}{
-			// function returns slice of extension *.crx files read as Python base64 data
-			// it gets called and formatted before it is sent to chromedriver
-			//"extensions":		func()
-			"binary":		"/usr/bin/chromium",
-		}
-		desired_chrome_capabilities := map[string]interface{}{
-			"browserName":		"chrome",
-			"version":		"",
-			"platform":		"ANY",
-			"javascriptEnabled":	true,
-			"chromeOptions":	chrome_options,
-		}
-		fmt.Println("desired_chrome_capabilities ==", desired_chrome_capabilities)
-		//command_executor_url := "http://127.0.0.1:4444/wd/hub"
-		//command_executor_url := fmt.Sprintf("http://127.0.0.1:%d/wd/hub", port)
-		command_executor_url := fmt.Sprintf("http://127.0.0.1:%d", port)
-		fmt.Println("command_executor_url", command_executor_url)
-		commands := map[string][2]string{
-			"newSession": [2]string{"POST", "/session"},
-		}
-		fmt.Println("commands ==", commands)
-		driver_command_to_execute := "newSession"
-		fmt.Println("driver_command_to_execute ==", driver_command_to_execute)
-		params_to_execute := map[string]map[string]interface{}{
-			"desiredCapabilities": desired_chrome_capabilities,
-		}
-		fmt.Println("params_to_execute ==", params_to_execute)
-		var result interface{}
-		if err := Session(command_executor_url, params_to_execute, &result); err != nil {
-			fmt.Println(fmt.Errorf("Error: problem starting session; error == %s", err.Error()))
-		} else {
-			fmt.Println("result ==", result)
-		}
-		time.Sleep(1 * time.Second)
+		return
 	}
+	fmt.Println("port ==", port)
+	go func() {
+		if err := startChromeDriver(true, port); err != nil {
+			go func() {
+				startChromeDriver(false, port)
+			}()
+		}
+	}()
+	defer stopChromeDriver(port)
+	waitForChromeDriver(port)
+	chrome_options := map[string]interface{}{
+		// function returns slice of extension *.crx files read as Python base64 data
+		// it gets called and formatted before it is sent to chromedriver
+		//"extensions":		func()
+		"binary": "/usr/bin/chromium",
+	}
+	desired_chrome_capabilities := map[string]interface{}{
+		"browserName":       "chrome",
+		"version":           "",
+		"platform":          "ANY",
+		"javascriptEnabled": true,
+		"chromeOptions":     chrome_options,
+	}
+	fmt.Println("desired_chrome_capabilities ==", desired_chrome_capabilities)
+	//command_executor_url := "http://127.0.0.1:4444/wd/hub"
+	//command_executor_url := fmt.Sprintf("http://127.0.0.1:%d/wd/hub", port)
+	command_executor_url := fmt.Sprintf("http://127.0.0.1:%d", port)
+	fmt.Println("command_executor_url", command_executor_url)
+	commands := map[string][2]string{
+		"newSession": [2]string{"POST", "/session"},
+	}
+	fmt.Println("commands ==", commands)
+	driver_command_to_execute := "newSession"
+	fmt.Println("driver_command_to_execute ==", driver_command_to_execute)
+	params_to_execute := map[string]map[string]interface{}{
+		"desiredCapabilities": desired_chrome_capabilities,
+	}
+	fmt.Println("params_to_execute ==", params_to_execute)
+	var result interface{}
+	if err := Session(command_executor_url, params_to_execute, &result); err != nil {
+		fmt.Println(fmt.Errorf("Error: problem starting session; error == %s", err.Error()))
+	} else {
+		fmt.Println("result ==", result)
+	}
+	time.Sleep(1 * time.Second)
 }
 
 func linuxChrome64DriverURL(latest bool) (chrome_driver_url string, driver_version string, err error) {
@@ -172,27 +169,25 @@ func linuxChrome64DriverURL(latest bool) (chrome_driver_url string, driver_versi
 	if resp, err := http.Get(chrome_drivers_url); err != nil {
 		err = fmt.Errorf("Error: unable to get latest driver from %s", chrome_drivers_url)
 		return chrome_driver_url, driver_version, err
-	} else {
-		defer resp.Body.Close()
-		if bytes, err := ioutil.ReadAll(resp.Body); err != nil {
-			err = fmt.Errorf("Error: unable to read bytes from body while getting driver from %s", chrome_drivers_url)
-			return chrome_driver_url, driver_version, err
-		} else {
-			chrome_driver_url = string(bytes)
-			if latest {
-				chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "'//chromedriver.googlecode.com/files/chromedriver_linux64_"):strings.LastIndex(chrome_driver_url, "supports Chrome")]
-				driver_version = chrome_driver_url[strings.LastIndex(chrome_driver_url, "(")+1:strings.LastIndex(chrome_driver_url, ")")]
-				chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "//"):strings.Index(chrome_driver_url, "',")]
-				chrome_driver_url = "https:" + chrome_driver_url
-			} else {
-				chrome_driver_url = chrome_driver_url[strings.LastIndex(chrome_driver_url, "'//chromedriver.googlecode.com/files/chromedriver_linux64_"):strings.LastIndex(chrome_driver_url, "deprecated")]
-				driver_version = "v" + chrome_driver_url[strings.LastIndex(chrome_driver_url, "chromedriver_linux64_")+21:strings.LastIndex(chrome_driver_url, ".zip")]
-				chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "//"):strings.Index(chrome_driver_url, "',")]
-				chrome_driver_url = "https:" + chrome_driver_url
-			}
-			return chrome_driver_url, driver_version, err
-		}
 	}
+	defer resp.Body.Close()
+	if bytes, err := ioutil.ReadAll(resp.Body); err != nil {
+		err = fmt.Errorf("Error: unable to read bytes from body while getting driver from %s", chrome_drivers_url)
+		return chrome_driver_url, driver_version, err
+	}
+	chrome_driver_url = string(bytes)
+	if latest {
+		chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "'//chromedriver.googlecode.com/files/chromedriver_linux64_"):strings.LastIndex(chrome_driver_url, "supports Chrome")]
+		driver_version = chrome_driver_url[strings.LastIndex(chrome_driver_url, "(")+1 : strings.LastIndex(chrome_driver_url, ")")]
+		chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "//"):strings.Index(chrome_driver_url, "',")]
+		chrome_driver_url = "https:" + chrome_driver_url
+	} else {
+		chrome_driver_url = chrome_driver_url[strings.LastIndex(chrome_driver_url, "'//chromedriver.googlecode.com/files/chromedriver_linux64_"):strings.LastIndex(chrome_driver_url, "deprecated")]
+		driver_version = "v" + chrome_driver_url[strings.LastIndex(chrome_driver_url, "chromedriver_linux64_")+21:strings.LastIndex(chrome_driver_url, ".zip")]
+		chrome_driver_url = chrome_driver_url[strings.Index(chrome_driver_url, "//"):strings.Index(chrome_driver_url, "',")]
+		chrome_driver_url = "https:" + chrome_driver_url
+	}
+	return chrome_driver_url, driver_version, err
 }
 
 func userHomeDir() string {
@@ -202,26 +197,23 @@ func userHomeDir() string {
 			if home == "" {
 				home = os.Getenv("USERPROFILE")
 			}
-				return home
-			}
+			return home
+		}
 		return os.Getenv("HOME")
-	} else {
-		return usr.HomeDir
 	}
+	return usr.HomeDir
 }
 
 func free_port() (int, error) {
 	tcp_address := net.TCPAddr{net.ParseIP("127.0.0.1"), 0, ""}
 	if tcp_listener, err := net.ListenTCP("tcp4", &tcp_address); err != nil {
 		return 0, errors.New("Error: unable to listen on ephemeral port")
-	} else {
-		defer tcp_listener.Close()
-		if port, err := strconv.Atoi(tcp_listener.Addr().String()[strings.LastIndex(tcp_listener.Addr().String(), ":")+1:]); err != nil {
-			return 0, errors.New("Error: unable to retrieve ephemeral port")
-		} else {
-			return port, nil
-		}
 	}
+	defer tcp_listener.Close()
+	if port, err := strconv.Atoi(tcp_listener.Addr().String()[strings.LastIndex(tcp_listener.Addr().String(), ":")+1:]); err != nil {
+		return 0, errors.New("Error: unable to retrieve ephemeral port")
+	}
+	return port, nil
 }
 
 func getChromeDriver(latest bool) (driver_path string, err error) {
@@ -231,79 +223,68 @@ func getChromeDriver(latest bool) (driver_path string, err error) {
 		driver_path := path.Join(driver_dir, "chromedriver")
 		fmt.Println("driver_path5 ==", driver_path)
 		return driver_path, err
-	} else {
-		driver_dir := path.Join(home_dir, ".selenium", "drivers", "chrome", driver_version)
-		driver_path := path.Join(driver_dir, "chromedriver")
-		fmt.Println("driver_path6 ==", driver_path)
-		fmt.Println("chrome_driver_url ==", chrome_driver_url)
-		fmt.Println("driver_version ==", driver_version)
-		fmt.Println("driver_dir ==", driver_dir)
-		if _, err := os.Stat(driver_dir); err != nil && os.IsNotExist(err){
-			if file_info, err := os.Stat(home_dir); err != nil && os.IsNotExist(err) {
-				fmt.Println(fmt.Errorf("Error: %s does not exist", home_dir))
-				return driver_path, fmt.Errorf("Error: %s does not exist; err == %s", home_dir, err.Error())
-			} else {
-				if err := os.MkdirAll(driver_dir, file_info.Mode()); err != nil {
-					return driver_path, fmt.Errorf("Error: unable to create %s; err == %s", driver_dir, err.Error())
-				}
-			}
-		}
-		if _, err := os.Stat(driver_path); err != nil && os.IsNotExist(err){
-			zip_name := chrome_driver_url[strings.LastIndex(chrome_driver_url, "/")+1:]
-			if zip_file, err := ioutil.TempFile("", zip_name); err != nil {
-				return driver_path, fmt.Errorf("Error: unable to create temporary file %s; err == %s", zip_name, err.Error())
-			} else {
-				defer zip_file.Close()
-				zip_path := zip_file.Name()
-				defer os.Remove(zip_path)
-				if resp, err := http.Get(chrome_driver_url); err != nil {
-					return driver_path, fmt.Errorf("Error: unable to get response from %s; err == %s", chrome_driver_url, err.Error())
-				} else {
-					defer resp.Body.Close()
-					if _, err := io.Copy(zip_file, resp.Body); err != nil {
-						return driver_path, fmt.Errorf("Error: unable to download %s; err == %s", chrome_driver_url, err.Error())
-					} else {
-						if zip_reader, err := zip.OpenReader(zip_path); err != nil {
-							return driver_path, fmt.Errorf("Error: unable to open file %s; err == %s", zip_path, err.Error())
-						} else {
-							defer zip_reader.Close()
-							for _, file := range zip_reader.File {
-								if file_contents, err := file.Open(); err != nil {
-									return driver_path, fmt.Errorf("Error: unable to open file %s within %s; err == %s", file.Name, zip_path, err.Error())
-								} else {
-									file_path := path.Join(driver_dir, file.Name)
-									if chrome_driver, err := os.Create(file_path); err != nil {
-										return driver_path, fmt.Errorf("Error: unable to create file %s; err == %s", file_path, err.Error())
-									} else {
-										if _, err := io.Copy(chrome_driver, file_contents); err != nil {
-											return driver_path, fmt.Errorf("Error: unable to unzip %s into %s; err == %s", zip_path, file_path, err.Error())
-										} else {
-											chrome_driver.Close()
-											if file_info, err := os.Stat(driver_path); err != nil {
-												return driver_path, fmt.Errorf("Error: unable to stat %s; err == %s", driver_path, err.Error())
-											} else {
-												file_mode := file_info.Mode()
-												fmt.Println("file_mode ==", file_mode)
-												file_mode = file_mode | 0100
-												fmt.Println("file_mode ==", file_mode)
-												if err := os.Chmod(driver_path, file_mode); err != nil {
-													return driver_path, fmt.Errorf("Error: unable to chmod %s; err == %s", driver_path, err.Error())
-												} else {
-													fmt.Println("Successfully downloaded and unzipped chromedriver")
-													return driver_path, err
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return driver_path, err
 	}
+	driver_dir := path.Join(home_dir, ".selenium", "drivers", "chrome", driver_version)
+	driver_path := path.Join(driver_dir, "chromedriver")
+	fmt.Println("driver_path6 ==", driver_path)
+	fmt.Println("chrome_driver_url ==", chrome_driver_url)
+	fmt.Println("driver_version ==", driver_version)
+	fmt.Println("driver_dir ==", driver_dir)
+	if _, err := os.Stat(driver_dir); err != nil && os.IsNotExist(err) {
+		if file_info, err := os.Stat(home_dir); err != nil && os.IsNotExist(err) {
+			fmt.Println(fmt.Errorf("Error: %s does not exist", home_dir))
+			return driver_path, fmt.Errorf("Error: %s does not exist; err == %s", home_dir, err.Error())
+		}
+		if err := os.MkdirAll(driver_dir, file_info.Mode()); err != nil {
+			return driver_path, fmt.Errorf("Error: unable to create %s; err == %s", driver_dir, err.Error())
+		}
+	}
+	if _, err := os.Stat(driver_path); err != nil && os.IsNotExist(err) {
+		zip_name := chrome_driver_url[strings.LastIndex(chrome_driver_url, "/")+1:]
+		if zip_file, err := ioutil.TempFile("", zip_name); err != nil {
+			return driver_path, fmt.Errorf("Error: unable to create temporary file %s; err == %s", zip_name, err.Error())
+		}
+		defer zip_file.Close()
+		zip_path := zip_file.Name()
+		defer os.Remove(zip_path)
+		if resp, err := http.Get(chrome_driver_url); err != nil {
+			return driver_path, fmt.Errorf("Error: unable to get response from %s; err == %s", chrome_driver_url, err.Error())
+		}
+		defer resp.Body.Close()
+		if _, err := io.Copy(zip_file, resp.Body); err != nil {
+			return driver_path, fmt.Errorf("Error: unable to download %s; err == %s", chrome_driver_url, err.Error())
+		}
+		if zip_reader, err := zip.OpenReader(zip_path); err != nil {
+			return driver_path, fmt.Errorf("Error: unable to open file %s; err == %s", zip_path, err.Error())
+		}
+		defer zip_reader.Close()
+		for _, file := range zip_reader.File {
+			if file_contents, err := file.Open(); err != nil {
+				return driver_path, fmt.Errorf("Error: unable to open file %s within %s; err == %s", file.Name, zip_path, err.Error())
+			}
+			file_path := path.Join(driver_dir, file.Name)
+			if chrome_driver, err := os.Create(file_path); err != nil {
+				return driver_path, fmt.Errorf("Error: unable to create file %s; err == %s", file_path, err.Error())
+			}
+			if _, err := io.Copy(chrome_driver, file_contents); err != nil {
+				return driver_path, fmt.Errorf("Error: unable to unzip %s into %s; err == %s", zip_path, file_path, err.Error())
+			}
+			chrome_driver.Close()
+			if file_info, err := os.Stat(driver_path); err != nil {
+				return driver_path, fmt.Errorf("Error: unable to stat %s; err == %s", driver_path, err.Error())
+			}
+			file_mode := file_info.Mode()
+			fmt.Println("file_mode ==", file_mode)
+			file_mode = file_mode | 0100
+			fmt.Println("file_mode ==", file_mode)
+			if err := os.Chmod(driver_path, file_mode); err != nil {
+				return driver_path, fmt.Errorf("Error: unable to chmod %s; err == %s", driver_path, err.Error())
+			}
+			fmt.Println("Successfully downloaded and unzipped chromedriver")
+			return driver_path, err
+		}
+	}
+	return driver_path, err
 }
 
 func startChromeDriver(latest bool, port int) error {
@@ -311,24 +292,22 @@ func startChromeDriver(latest bool, port int) error {
 	if driver_path, err := getChromeDriver(latest); err != nil {
 		fmt.Println("driver_path1 ==", driver_path)
 		return err
-	} else {
-		fmt.Println("driver_path2 ==", driver_path)
-		fmt.Println("port ==", port)
-		driver_command := exec.Command(driver_path, "--port=" + strconv.Itoa(port))
-		var stdout_buffer bytes.Buffer
-		driver_command.Stdout = &stdout_buffer
-		var stderr_buffer bytes.Buffer
-		driver_command.Stderr = &stderr_buffer
-		if err := driver_command.Run(); err != nil {
-			fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
-			fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
-			return fmt.Errorf("Error: unable to run command, err == %s", err.Error())
-		} else {
-			fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
-			fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
-			return nil
-		}
 	}
+	fmt.Println("driver_path2 ==", driver_path)
+	fmt.Println("port ==", port)
+	driver_command := exec.Command(driver_path, "--port="+strconv.Itoa(port))
+	var stdout_buffer bytes.Buffer
+	driver_command.Stdout = &stdout_buffer
+	var stderr_buffer bytes.Buffer
+	driver_command.Stderr = &stderr_buffer
+	if err := driver_command.Run(); err != nil {
+		fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
+		fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
+		return fmt.Errorf("Error: unable to run command, err == %s", err.Error())
+	}
+	fmt.Printf("latest driver_command.Stdout == %q\n", stdout_buffer.String())
+	fmt.Printf("latest driver_command.Stderr == %q\n", stderr_buffer.String())
+	return nil
 }
 
 func stopChromeDriver(port int) {
